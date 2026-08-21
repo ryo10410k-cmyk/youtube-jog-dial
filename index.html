@@ -562,7 +562,8 @@
             player.seekTo(savedTime, true);
           }
 
-          setInterval(updateTimeAndResume, 250);
+          // 100ms interval for smoother dial rotation
+          setInterval(updateTimeAndResume, 100);
           initAppOnLoad();
         },
         'onStateChange': onPlayerStateChange,
@@ -653,12 +654,16 @@
     isUserSeekingBar = false;
   }
 
-  /* Reliable Resume & Time Display */
+  /* Reliable Resume, Time Display & Real-Time Dial Rotation */
   function updateTimeAndResume() {
     if (!isDragging) {
       const cur = getCurrentMediaTime();
       const dur = getMediaDuration();
       statusText.textContent = `${formatTime(cur)} / ${formatTime(dur)}`;
+
+      // Synchronize Jog Dial rotation with current playback position
+      const autoAngle = (cur / secondsPerTurn) * 360;
+      dial.style.transform = `rotate(${autoAngle}deg)`;
 
       if (activeMode === 'local') {
         updateSeekbar();
@@ -997,14 +1002,14 @@
   }
 
   /* ----------------------------------------------------
-     5. Jog Dial Motion Controller
+     5. Jog Dial Motion Controller (Drag & Seek)
   ---------------------------------------------------- */
   const dial = document.getElementById('jogDial');
   let isDragging = false;
   let startAngle = 0;
   let baseTime = 0;
   let totalTurnAngle = 0;
-  let visualRotation = 0;
+  let currentDragRotation = 0;
   let targetTime = 0;
   let lastVibrateAngle = 0;
 
@@ -1019,11 +1024,14 @@
     if (e.target === centerBtn) return;
     isDragging = true;
     dial.setPointerCapture(e.pointerId);
+
     startAngle = getAngle(e);
     totalTurnAngle = 0;
     lastVibrateAngle = 0;
     baseTime = getCurrentMediaTime();
     targetTime = baseTime;
+    currentDragRotation = (baseTime / secondsPerTurn) * 360;
+
     e.preventDefault();
   });
 
@@ -1036,8 +1044,8 @@
     if (diff < -180) diff += 360;
 
     totalTurnAngle += diff;
-    visualRotation += diff;
-    dial.style.transform = `rotate(${visualRotation}deg)`;
+    currentDragRotation += diff;
+    dial.style.transform = `rotate(${currentDragRotation}deg)`;
 
     if (Math.abs(totalTurnAngle - lastVibrateAngle) >= 15) {
       triggerHaptic();
