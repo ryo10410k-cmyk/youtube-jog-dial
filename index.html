@@ -3,160 +3,163 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
-  <title>YouTube Jog Dial - Listening</title>
+  <title>Jog Dial Player - Language Practice</title>
   <style>
+    :root {
+      --primary: #007aff;
+      --bg: #f5f5f7;
+      --card-bg: #ffffff;
+      --border: #e2e2e7;
+      --text: #1d1d1f;
+      --text-sub: #86868b;
+    }
     body {
       margin: 0;
-      padding: 16px;
+      padding: 12px 16px 24px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
-      background: #f4f4f4;
+      background: var(--bg);
+      color: var(--text);
       -webkit-user-select: none;
       user-select: none;
       touch-action: pan-y;
     }
+
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Media Area */
     #player-container {
       width: 100%;
-      max-width: 480px;
       aspect-ratio: 16 / 9;
       background: #000;
-      border-radius: 8px;
+      border-radius: 12px;
       overflow: hidden;
       position: relative;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
-    #player {
+    #player, #localVideo {
       width: 100%;
       height: 100%;
+      object-fit: contain;
+    }
+    #localVideo {
+      display: none;
+      background: #000;
     }
 
-    /* Voice Practice Box */
-    .recorder-box {
+    /* Source Selector & Input */
+    .source-panel {
       width: 100%;
-      max-width: 480px;
-      margin-top: 14px;
-      padding: 10px 14px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
       box-sizing: border-box;
-      background: #ffffff;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
-    .rec-btn {
-      padding: 8px 14px;
-      font-size: 13px;
-      font-weight: bold;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
+    .source-tabs {
       display: flex;
-      align-items: center;
       gap: 6px;
-      transition: background 0.2s;
+      margin-bottom: 8px;
     }
-    .rec-start {
-      background: #ff3b30;
-      color: #fff;
-    }
-    .rec-recording {
-      background: #333;
-      color: #fff;
-      animation: pulse 1.2s infinite;
-    }
-    @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.6; }
-      100% { opacity: 1; }
-    }
-    .rec-play {
-      background: #34c759;
-      color: #fff;
-    }
-    .rec-play:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-    .rec-status {
+    .tab-btn {
+      flex: 1;
+      padding: 6px;
       font-size: 12px;
       font-weight: bold;
-      color: #666;
-      flex: 1;
-      text-align: center;
-    }
-    .rec-dl-btn {
-      background: transparent;
-      border: 1px solid #ccc;
-      color: #555;
-      padding: 6px 10px;
-      font-size: 11px;
-      border-radius: 4px;
+      background: #f0f0f2;
+      border: none;
+      border-radius: 6px;
+      color: var(--text-sub);
       cursor: pointer;
-      display: none;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #fff;
     }
 
-    .search-box {
-      width: 100%;
-      max-width: 480px;
-      margin-top: 10px;
+    .input-row {
       display: flex;
       gap: 6px;
     }
-    .search-box input {
+    .input-row input[type="text"] {
       flex: 1;
-      padding: 10px;
-      font-size: 14px;
-      border: 1px solid #ccc;
+      padding: 8px 10px;
+      font-size: 13px;
+      border: 1px solid var(--border);
       border-radius: 6px;
       outline: none;
     }
-    .search-box button {
-      padding: 10px 14px;
-      font-size: 13px;
+    .action-btn {
+      padding: 8px 12px;
+      font-size: 12px;
       font-weight: bold;
-      background: #222;
+      background: #2c2c2e;
       color: #fff;
       border: none;
       border-radius: 6px;
       cursor: pointer;
     }
-    .fav-btn-add {
-      background: #ff9500 !important;
+    .btn-fav {
+      background: #ff9500;
+    }
+    .file-label {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      background: #f0f0f2;
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      color: #555;
+      cursor: pointer;
     }
 
-    .fav-section {
+    /* Collapsible Favorites */
+    .fav-drawer {
       width: 100%;
-      max-width: 480px;
-      margin-top: 12px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
     }
-    .fav-title {
+    .fav-summary {
+      padding: 8px 12px;
       font-size: 12px;
       font-weight: bold;
-      color: #777;
-      margin-bottom: 6px;
+      color: var(--text-sub);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
     }
     .fav-list {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      max-height: 100px;
+      padding: 0 10px 10px;
+      max-height: 90px;
       overflow-y: auto;
     }
     .fav-chip {
       display: flex;
       align-items: center;
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 14px;
-      padding: 5px 10px;
-      font-size: 12px;
-      color: #333;
+      background: #f4f4f6;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px 8px;
+      font-size: 11px;
       cursor: pointer;
-      max-width: 220px;
+      max-width: 200px;
     }
     .fav-chip-title {
       white-space: nowrap;
@@ -167,129 +170,204 @@
       margin-left: 6px;
       color: #999;
       font-weight: bold;
-      cursor: pointer;
-      padding: 0 2px;
     }
 
-    .mode-selector {
-      margin-top: 14px;
+    /* Voice Bar & Speed Control */
+    .control-bar {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      box-sizing: border-box;
       display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 8px;
     }
-    .mode-btn {
-      padding: 6px 14px;
+    .rec-btn {
+      padding: 6px 12px;
       font-size: 12px;
       font-weight: bold;
-      letter-spacing: 0.5px;
-      border: 1px solid #dcdcdc;
-      border-radius: 16px;
-      background: #ffffff;
-      color: #666;
+      border-radius: 6px;
+      border: none;
       cursor: pointer;
-      outline: none;
     }
-    .mode-btn.active {
-      background: #007aff;
-      color: #ffffff;
-      border-color: #007aff;
+    .rec-start { background: #ff3b30; color: #fff; }
+    .rec-recording { background: #333; color: #fff; animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+    .rec-play { background: #34c759; color: #fff; }
+    .rec-play:disabled { background: #e0e0e0; color: #999; cursor: not-allowed; }
+
+    /* Speed Selector Pill */
+    .speed-select {
+      display: flex;
+      background: #f0f0f2;
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .speed-btn {
+      border: none;
+      background: transparent;
+      padding: 4px 6px;
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--text-sub);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .speed-btn.active {
+      background: #fff;
+      color: var(--text);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
 
+    /* Mode Pill Selector */
+    .mode-selector {
+      display: flex;
+      gap: 6px;
+    }
+    .mode-btn {
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: bold;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #ffffff;
+      color: var(--text-sub);
+      cursor: pointer;
+    }
+    .mode-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    /* Jog Dial */
     .dial-wrapper {
-      margin-top: 16px;
+      margin-top: 4px;
       position: relative;
       touch-action: none !important;
-      -webkit-user-select: none;
-      user-select: none;
     }
     .dial {
-      width: 220px;
-      height: 220px;
+      width: 200px;
+      height: 200px;
       border-radius: 50%;
       background: linear-gradient(145deg, #e6e6e6, #ffffff);
-      box-shadow: 6px 6px 16px #c8c8c8, -6px -6px 16px #ffffff;
+      box-shadow: 5px 5px 14px #cfcfd4, -5px -5px 14px #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
       position: relative;
-      touch-action: none !important;
     }
     .dial-indicator {
       position: absolute;
-      top: 14px;
-      width: 16px;
-      height: 16px;
+      top: 12px;
+      width: 14px;
+      height: 14px;
       background-color: #ff3b30;
       border-radius: 50%;
       pointer-events: none;
     }
     .dial-center {
-      width: 80px;
-      height: 80px;
+      width: 74px;
+      height: 74px;
       border-radius: 50%;
       background: #ececec;
-      box-shadow: 3px 3px 6px #d1d1d1, -3px -3px 6px #ffffff;
+      box-shadow: 2px 2px 5px #d1d1d1, -2px -2px 5px #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: bold;
-      color: #444;
-      font-size: 13px;
+      color: #333;
+      font-size: 12px;
       cursor: pointer;
       z-index: 10;
-      pointer-events: auto;
-      transition: transform 0.1s, box-shadow 0.1s;
+      transition: transform 0.1s;
     }
     .dial-center:active {
-      transform: scale(0.94);
-      box-shadow: inset 2px 2px 5px #d1d1d1, inset -2px -2px 5px #ffffff;
+      transform: scale(0.95);
     }
 
     .status {
-      margin-top: 12px;
-      font-size: 16px;
-      color: #111;
+      font-size: 15px;
       font-weight: bold;
       text-align: center;
       font-variant-numeric: tabular-nums;
     }
     .mode-hint {
-      margin-top: 4px;
-      font-size: 12px;
-      color: #888;
+      font-size: 11px;
+      color: var(--text-sub);
     }
   </style>
 </head>
 <body>
 
+<div class="app-container">
+
+  <!-- Video Box -->
   <div id="player-container">
     <div id="player"></div>
+    <video id="localVideo" playsinline></video>
   </div>
 
-  <!-- Voice Recorder Section -->
-  <div class="recorder-box">
-    <button id="recBtn" class="rec-btn rec-start" onclick="toggleRecording()">● REC</button>
-    <button id="playVoiceBtn" class="rec-btn rec-play" onclick="playVoice()" disabled>▶ MY VOICE</button>
-    <div id="recStatus" class="rec-status">Ready</div>
-    <button id="dlVoiceBtn" class="rec-dl-btn" onclick="downloadVoice()">SAVE</button>
+  <!-- Unified Source Panel -->
+  <div class="source-panel">
+    <div class="source-tabs">
+      <button id="tabYt" class="tab-btn active" onclick="switchSourceTab('yt')">YouTube</button>
+      <button id="tabLocal" class="tab-btn" onclick="switchSourceTab('local')">Local File</button>
+    </div>
+
+    <!-- YouTube Input Row -->
+    <div id="rowYt" class="input-row">
+      <input type="text" id="videoUrlInput" placeholder="YouTube URL / ID" />
+      <button class="action-btn" onclick="loadVideoFromInput()">LOAD</button>
+      <button class="action-btn btn-fav" onclick="saveToFavorites()">★ SAVE</button>
+    </div>
+
+    <!-- Local File Input Row -->
+    <div id="rowLocal" class="input-row" style="display: none;">
+      <label class="file-label">
+        <span>📁 Choose Video/Audio File</span>
+        <input type="file" id="localFileInput" accept="video/*,audio/*" style="display:none;" onchange="loadLocalFile(event)">
+      </label>
+    </div>
   </div>
 
-  <div class="search-box">
-    <input type="text" id="videoUrlInput" placeholder="YouTube URL (Supports Shorts) / Video ID" />
-    <button onclick="loadVideoFromInput()">LOAD</button>
-    <button class="fav-btn-add" onclick="saveToFavorites()">★ SAVE</button>
-  </div>
-
-  <div class="fav-section">
-    <div class="fav-title">★ FAVORITES</div>
+  <!-- Favorites Dropdown -->
+  <details class="fav-drawer">
+    <summary class="fav-summary">
+      <span>★ Favorites (<span id="favCount">0</span>)</span>
+      <span style="font-size:10px;">▼</span>
+    </summary>
     <div class="fav-list" id="favList"></div>
+  </details>
+
+  <!-- Voice & Speed Control Bar -->
+  <div class="control-bar">
+    <div style="display:flex; gap:6px; align-items:center;">
+      <button id="recBtn" class="rec-btn rec-start" onclick="toggleRecording()">● REC</button>
+      <button id="playVoiceBtn" class="rec-btn rec-play" onclick="playVoice()" disabled>▶ VOICE</button>
+    </div>
+
+    <!-- Playback Rate Pill -->
+    <div class="speed-select">
+      <button class="speed-btn" onclick="setPlaybackRate(0.75, this)">0.75x</button>
+      <button class="speed-btn active" onclick="setPlaybackRate(1.0, this)">1.0x</button>
+      <button class="speed-btn" onclick="setPlaybackRate(1.25, this)">1.25x</button>
+      <button class="speed-btn" onclick="setPlaybackRate(1.5, this)">1.5x</button>
+    </div>
   </div>
 
+  <!-- Jog Mode Selector -->
   <div class="mode-selector">
     <button class="mode-btn" onclick="setSensitivity(3, this)">FINE · 3s</button>
     <button class="mode-btn active" onclick="setSensitivity(5, this)">MID · 5s</button>
     <button class="mode-btn" onclick="setSensitivity(10, this)">COARSE · 10s</button>
   </div>
 
+  <!-- Jog Dial -->
   <div class="dial-wrapper">
     <div class="dial" id="jogDial">
       <div class="dial-indicator"></div>
@@ -300,390 +378,396 @@
   <div class="status" id="statusText">00:00.0 / 00:00.0</div>
   <div class="mode-hint" id="modeHint">SPEED: 1 Turn = 5 sec (MID)</div>
 
-  <script>
-    /* 1. YouTube API */
-    var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    var firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+</div>
 
-    let player;
-    let isPlayerReady = false;
-    let secondsPerTurn = 5;
-    let currentVideoId = localStorage.getItem('last_played_video') || 'dQw4w9WgXcQ';
+<script>
+  let activeMode = 'yt'; // 'yt' or 'local'
+  let player = null;
+  let isPlayerReady = false;
+  let secondsPerTurn = 5;
+  let playbackRate = 1.0;
+  let currentVideoId = localStorage.getItem('last_played_video') || 'dQw4w9WgXcQ';
+  const localVideo = document.getElementById('localVideo');
+  const centerBtn = document.getElementById('centerBtn');
+  const statusText = document.getElementById('statusText');
 
-    function setSensitivity(sec, btnElement) {
-      secondsPerTurn = sec;
-      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-      btnElement.classList.add('active');
+  /* 1. YouTube API */
+  var tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  var firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-      const label = sec === 3 ? 'FINE' : (sec === 5 ? 'MID' : 'COARSE');
-      document.getElementById('modeHint').textContent = `SPEED: 1 Turn = ${sec} sec (${label})`;
-    }
-
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('player', {
-        height: '100%',
-        width: '100%',
-        videoId: currentVideoId,
-        playerVars: {
-          'playsinline': 1,
-          'rel': 0,
-          'controls': 1,
-          'cc_load_policy': 1
+  function onYouTubeIframeAPIReady() {
+    const savedTime = parseFloat(localStorage.getItem('resume_time_' + currentVideoId) || '0');
+    player = new YT.Player('player', {
+      height: '100%',
+      width: '100%',
+      videoId: currentVideoId,
+      playerVars: {
+        'playsinline': 1,
+        'rel': 0,
+        'controls': 1,
+        'start': Math.floor(savedTime)
+      },
+      events: {
+        'onReady': function() {
+          isPlayerReady = true;
+          player.setPlaybackRate(playbackRate);
+          setInterval(updateTimeAndResume, 250);
+          renderFavorites();
         },
-        events: {
-          'onReady': function() {
-            isPlayerReady = true;
-            setInterval(updateTimeDisplay, 200);
-            renderFavorites();
-          },
-          'onStateChange': onPlayerStateChange,
-          'onError': onPlayerError
-        }
-      });
+        'onStateChange': onPlayerStateChange,
+        'onError': () => { statusText.textContent = "⚠️ Playback Error"; }
+      }
+    });
+  }
+
+  function onPlayerStateChange(event) {
+    if (activeMode !== 'yt') return;
+    centerBtn.textContent = (event.data === YT.PlayerState.PLAYING) ? 'PAUSE' : 'PLAY';
+  }
+
+  /* Unified Media Control Abstraction */
+  function getCurrentMediaTime() {
+    if (activeMode === 'yt' && isPlayerReady && player && typeof player.getCurrentTime === 'function') {
+      return player.getCurrentTime() || 0;
+    } else if (activeMode === 'local') {
+      return localVideo.currentTime || 0;
     }
+    return 0;
+  }
 
-    const centerBtn = document.getElementById('centerBtn');
+  function getMediaDuration() {
+    if (activeMode === 'yt' && isPlayerReady && player && typeof player.getDuration === 'function') {
+      return player.getDuration() || 0;
+    } else if (activeMode === 'local') {
+      return localVideo.duration || 0;
+    }
+    return 0;
+  }
 
-    function onPlayerStateChange(event) {
-      if (event.data === YT.PlayerState.PLAYING) {
-        centerBtn.textContent = 'PAUSE';
-      } else {
-        centerBtn.textContent = 'PLAY';
+  function seekMediaTo(sec) {
+    if (activeMode === 'yt' && isPlayerReady && player) {
+      player.seekTo(sec, true);
+    } else if (activeMode === 'local') {
+      localVideo.currentTime = sec;
+    }
+  }
+
+  function togglePlayPause() {
+    if (activeMode === 'yt' && isPlayerReady && player) {
+      const state = player.getPlayerState();
+      if (state === YT.PlayerState.PLAYING) player.pauseVideo();
+      else player.playVideo();
+    } else if (activeMode === 'local') {
+      if (localVideo.paused) localVideo.play();
+      else localVideo.pause();
+    }
+    triggerHaptic();
+  }
+
+  centerBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    togglePlayPause();
+  });
+
+  /* ③ Resume Time Tracker */
+  function updateTimeAndResume() {
+    if (!isDragging) {
+      const cur = getCurrentMediaTime();
+      const dur = getMediaDuration();
+      statusText.textContent = `${formatTime(cur)} / ${formatTime(dur)}`;
+
+      // Save position for resume
+      if (activeMode === 'yt' && cur > 1) {
+        localStorage.setItem('resume_time_' + currentVideoId, cur);
+      } else if (activeMode === 'local' && localVideo.dataset.fileKey && cur > 1) {
+        localStorage.setItem('resume_local_' + localVideo.dataset.fileKey, cur);
       }
     }
+  }
 
-    function onPlayerError(event) {
-      statusText.textContent = "⚠️ Playback Error (Please check URL)";
+  /* ① Playback Speed Control */
+  function setPlaybackRate(rate, btn) {
+    playbackRate = rate;
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    if (activeMode === 'yt' && isPlayerReady && player) {
+      player.setPlaybackRate(rate);
+    } else if (activeMode === 'local') {
+      localVideo.playbackRate = rate;
+    }
+  }
+
+  /* ② Tab Switching & Local File Loader */
+  function switchSourceTab(mode) {
+    activeMode = mode;
+    document.getElementById('tabYt').classList.toggle('active', mode === 'yt');
+    document.getElementById('tabLocal').classList.toggle('active', mode === 'local');
+    document.getElementById('rowYt').style.display = mode === 'yt' ? 'flex' : 'none';
+    document.getElementById('rowLocal').style.display = mode === 'local' ? 'flex' : 'none';
+
+    if (mode === 'yt') {
+      localVideo.pause();
+      localVideo.style.display = 'none';
+      document.getElementById('player').style.display = 'block';
+    } else {
+      if (player && typeof player.pauseVideo === 'function') player.pauseVideo();
+      document.getElementById('player').style.display = 'none';
+      localVideo.style.display = 'block';
+    }
+  }
+
+  function loadLocalFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const fileUrl = URL.createObjectURL(file);
+    localVideo.src = fileUrl;
+    localVideo.playbackRate = playbackRate;
+    localVideo.dataset.fileKey = file.name + '_' + file.size;
+
+    // Check resume for this file
+    const savedTime = parseFloat(localStorage.getItem('resume_local_' + localVideo.dataset.fileKey) || '0');
+    localVideo.onloadedmetadata = () => {
+      if (savedTime < localVideo.duration) {
+        localVideo.currentTime = savedTime;
+      }
+      statusText.textContent = `${formatTime(localVideo.currentTime)} / ${formatTime(localVideo.duration)}`;
+    };
+
+    localVideo.onplay = () => { centerBtn.textContent = 'PAUSE'; };
+    localVideo.onpause = () => { centerBtn.textContent = 'PLAY'; };
+    localVideo.play();
+  }
+
+  /* Sensitivity Settings */
+  function setSensitivity(sec, btnElement) {
+    secondsPerTurn = sec;
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+    btnElement.classList.add('active');
+    const label = sec === 3 ? 'FINE' : (sec === 5 ? 'MID' : 'COARSE');
+    document.getElementById('modeHint').textContent = `SPEED: 1 Turn = ${sec} sec (${label})`;
+  }
+
+  /* YouTube Loader */
+  function extractVideoId(input) {
+    if (!input) return null;
+    let text = input.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(text)) return text;
+    if (text.includes('youtu.be/')) return text.split('youtu.be/')[1].split(/[?#&/]/)[0].substring(0, 11);
+    if (text.includes('/shorts/')) return text.split('/shorts/')[1].split(/[?#&/]/)[0].substring(0, 11);
+    if (text.includes('v=')) return text.split('v=')[1].split(/[?#&/]/)[0].substring(0, 11);
+    if (text.includes('/embed/')) return text.split('/embed/')[1].split(/[?#&/]/)[0].substring(0, 11);
+    return null;
+  }
+
+  function playVideoById(videoId) {
+    if (!videoId) return;
+    currentVideoId = videoId;
+    localStorage.setItem('last_played_video', videoId);
+
+    const savedTime = parseFloat(localStorage.getItem('resume_time_' + videoId) || '0');
+
+    if (player && typeof player.loadVideoById === 'function') {
+      switchSourceTab('yt');
+      player.loadVideoById({
+        videoId: videoId,
+        startSeconds: Math.floor(savedTime)
+      });
+      player.setPlaybackRate(playbackRate);
+    }
+  }
+
+  function loadVideoFromInput() {
+    const input = document.getElementById('videoUrlInput').value;
+    const vid = extractVideoId(input);
+    if (!vid) {
+      alert("Invalid YouTube URL or ID.");
+      return;
+    }
+    playVideoById(vid);
+  }
+
+  /* Favorites Feature */
+  function getFavorites() {
+    try { return JSON.parse(localStorage.getItem('my_fav_videos') || '[]'); } catch (_) { return []; }
+  }
+
+  async function saveToFavorites() {
+    let defaultTitle = "Video " + (getFavorites().length + 1);
+    try {
+      if (player && typeof player.getVideoData === 'function' && player.getVideoData().title) {
+        defaultTitle = player.getVideoData().title;
+      }
+    } catch (_) {}
+
+    const label = prompt("Enter a name for this favorite:", defaultTitle);
+    if (!label) return;
+
+    const favs = getFavorites();
+    favs.push({ title: label, id: currentVideoId });
+    localStorage.setItem('my_fav_videos', JSON.stringify(favs));
+    renderFavorites();
+  }
+
+  function deleteFavorite(index, e) {
+    e.stopPropagation();
+    const favs = getFavorites();
+    favs.splice(index, 1);
+    localStorage.setItem('my_fav_videos', JSON.stringify(favs));
+    renderFavorites();
+  }
+
+  function renderFavorites() {
+    const container = document.getElementById('favList');
+    const countEl = document.getElementById('favCount');
+    if (!container) return;
+    const favs = getFavorites();
+    countEl.textContent = favs.length;
+    container.innerHTML = '';
+
+    if (favs.length === 0) {
+      container.innerHTML = '<span style="font-size:11px;color:#aaa;">No saved favorites</span>';
+      return;
     }
 
-    centerBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!isPlayerReady || !player || typeof player.getPlayerState !== 'function') return;
+    favs.forEach((item, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'fav-chip';
+      chip.title = item.title;
+      chip.innerHTML = `<span class="fav-chip-title">▶ ${item.title}</span><span class="fav-chip-del" onclick="deleteFavorite(${idx}, event)">×</span>`;
+      chip.onclick = () => playVideoById(item.id);
+      container.appendChild(chip);
+    });
+  }
 
+  /* MediaRecorder Audio Logic */
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let recordedAudioUrl = null;
+  let currentAudio = null;
+  let isRecording = false;
+
+  const recBtn = document.getElementById('recBtn');
+  const playVoiceBtn = document.getElementById('playVoiceBtn');
+
+  async function toggleRecording() {
+    if (!isRecording) {
       try {
-        const state = player.getPlayerState();
-        if (state === YT.PlayerState.PLAYING) {
-          player.pauseVideo();
-        } else {
-          player.playVideo();
-        }
-        triggerHaptic();
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl);
+          recordedAudioUrl = URL.createObjectURL(audioBlob);
+          playVoiceBtn.disabled = false;
+          stream.getTracks().forEach(track => track.stop());
+        };
+        mediaRecorder.start();
+        isRecording = true;
+        recBtn.textContent = "■ STOP";
+        recBtn.className = "rec-btn rec-recording";
       } catch (err) {
-        console.error(err);
+        alert("Mic permission denied.");
       }
-    });
+    } else {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      isRecording = false;
+      recBtn.textContent = "● REC";
+      recBtn.className = "rec-btn rec-start";
+    }
+  }
 
-    /* URL Parsing Logic */
-    function extractVideoId(input) {
-      if (!input) return null;
-      let text = input.trim();
+  function playVoice() {
+    if (!recordedAudioUrl) return;
+    if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+    currentAudio = new Audio(recordedAudioUrl);
+    currentAudio.play();
+  }
 
-      if (/^[a-zA-Z0-9_-]{11}$/.test(text)) return text;
-      if (text.includes('youtu.be/')) {
-        const idPart = text.split('youtu.be/')[1];
-        return idPart.split(/[?#&/]/)[0].substring(0, 11);
-      }
-      if (text.includes('/shorts/')) {
-        const idPart = text.split('/shorts/')[1];
-        return idPart.split(/[?#&/]/)[0].substring(0, 11);
-      }
-      if (text.includes('v=')) {
-        const idPart = text.split('v=')[1];
-        return idPart.split(/[?#&/]/)[0].substring(0, 11);
-      }
-      if (text.includes('/embed/')) {
-        const idPart = text.split('/embed/')[1];
-        return idPart.split(/[?#&/]/)[0].substring(0, 11);
-      }
-      return null;
+  function formatTime(seconds) {
+    const sec = Math.max(0, Math.floor(seconds));
+    const m = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = (sec % 60).toString().padStart(2, '0');
+    const ms = Math.floor((seconds % 1) * 10);
+    return `${m}:${s}.${ms}`;
+  }
+
+  function triggerHaptic() {
+    if (navigator.vibrate) navigator.vibrate(8);
+  }
+
+  /* Jog Dial Motion Controller */
+  const dial = document.getElementById('jogDial');
+  let isDragging = false;
+  let startAngle = 0;
+  let baseTime = 0;
+  let totalTurnAngle = 0;
+  let visualRotation = 0;
+  let targetTime = 0;
+  let lastVibrateAngle = 0;
+
+  function getAngle(e) {
+    const rect = dial.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    return Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+  }
+
+  dial.addEventListener('pointerdown', (e) => {
+    if (e.target === centerBtn) return;
+    isDragging = true;
+    dial.setPointerCapture(e.pointerId);
+    startAngle = getAngle(e);
+    totalTurnAngle = 0;
+    lastVibrateAngle = 0;
+    baseTime = getCurrentMediaTime();
+    targetTime = baseTime;
+    e.preventDefault();
+  });
+
+  dial.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+
+    const currentAngle = getAngle(e);
+    let diff = currentAngle - startAngle;
+    if (diff > 180) diff -= 360;
+    if (diff < -180) diff += 360;
+
+    totalTurnAngle += diff;
+    visualRotation += diff;
+    dial.style.transform = `rotate(${visualRotation}deg)`;
+
+    if (Math.abs(totalTurnAngle - lastVibrateAngle) >= 15) {
+      triggerHaptic();
+      lastVibrateAngle = totalTurnAngle;
     }
 
-    function playVideoById(videoId) {
-      if (!videoId) return;
-      currentVideoId = videoId;
-      localStorage.setItem('last_played_video', videoId);
+    const deltaSeconds = (totalTurnAngle / 360) * secondsPerTurn;
+    const duration = getMediaDuration() || 99999;
+    targetTime = Math.min(Math.max(0, baseTime + deltaSeconds), duration);
 
-      if (player && typeof player.loadVideoById === 'function') {
-        try {
-          player.loadVideoById(videoId);
-          statusText.textContent = "Video loaded";
-        } catch (err) {
-          console.error("loadVideoById error:", err);
-        }
-      }
+    const sign = deltaSeconds >= 0 ? '+' : '';
+    statusText.textContent = `${formatTime(targetTime)} (${sign}${deltaSeconds.toFixed(1)}s)`;
+
+    startAngle = currentAngle;
+    e.preventDefault();
+  });
+
+  function stopPointer(e) {
+    if (isDragging) {
+      isDragging = false;
+      seekMediaTo(targetTime);
+      try { dial.releasePointerCapture(e.pointerId); } catch (_) {}
     }
+  }
 
-    function loadVideoFromInput() {
-      const input = document.getElementById('videoUrlInput').value;
-      const vid = extractVideoId(input);
-
-      if (!vid) {
-        alert("Valid YouTube URL or Video ID not found. Please check your input.");
-        return;
-      }
-      playVideoById(vid);
-    }
-
-    /* Favorites Feature */
-    function getFavorites() {
-      try {
-        return JSON.parse(localStorage.getItem('my_fav_videos') || '[]');
-      } catch (_) {
-        return [];
-      }
-    }
-
-    async function saveToFavorites() {
-      let defaultTitle = "Video " + (getFavorites().length + 1);
-
-      try {
-        if (player && typeof player.getVideoData === 'function' && player.getVideoData().title) {
-          defaultTitle = player.getVideoData().title;
-        } else {
-          const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${currentVideoId}`);
-          const data = await res.json();
-          if (data && data.title) defaultTitle = data.title;
-        }
-      } catch (_) {}
-
-      const label = prompt("Enter a name for this favorite:", defaultTitle);
-      if (!label) return;
-
-      const favs = getFavorites();
-      favs.push({ title: label, id: currentVideoId });
-      localStorage.setItem('my_fav_videos', JSON.stringify(favs));
-      renderFavorites();
-    }
-
-    function deleteFavorite(index, e) {
-      e.stopPropagation();
-      const favs = getFavorites();
-      favs.splice(index, 1);
-      localStorage.setItem('my_fav_videos', JSON.stringify(favs));
-      renderFavorites();
-    }
-
-    function renderFavorites() {
-      const container = document.getElementById('favList');
-      if (!container) return;
-      const favs = getFavorites();
-      container.innerHTML = '';
-
-      if (favs.length === 0) {
-        container.innerHTML = '<span style="font-size:12px;color:#aaa;">No saved videos</span>';
-        return;
-      }
-
-      favs.forEach((item, idx) => {
-        const chip = document.createElement('div');
-        chip.className = 'fav-chip';
-        chip.title = item.title;
-        chip.innerHTML = `<span class="fav-chip-title">▶ ${item.title}</span><span class="fav-chip-del" onclick="deleteFavorite(${idx}, event)">×</span>`;
-        chip.onclick = () => playVideoById(item.id);
-        container.appendChild(chip);
-      });
-    }
-
-    /* Voice Recorder Logic (MediaRecorder API) */
-    let mediaRecorder = null;
-    let audioChunks = [];
-    let recordedAudioUrl = null;
-    let currentAudio = null;
-    let isRecording = false;
-
-    const recBtn = document.getElementById('recBtn');
-    const playVoiceBtn = document.getElementById('playVoiceBtn');
-    const recStatus = document.getElementById('recStatus');
-    const dlVoiceBtn = document.getElementById('dlVoiceBtn');
-
-    async function toggleRecording() {
-      if (!isRecording) {
-        // Start Recording
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          audioChunks = [];
-          mediaRecorder = new MediaRecorder(stream);
-
-          mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) audioChunks.push(e.data);
-          };
-
-          mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl);
-            recordedAudioUrl = URL.createObjectURL(audioBlob);
-
-            playVoiceBtn.disabled = false;
-            dlVoiceBtn.style.display = 'inline-block';
-            recStatus.textContent = "Recorded";
-            
-            // Stop mic track
-            stream.getTracks().forEach(track => track.stop());
-          };
-
-          mediaRecorder.start();
-          isRecording = true;
-          recBtn.textContent = "■ STOP";
-          recBtn.className = "rec-btn rec-recording";
-          recStatus.textContent = "Recording...";
-        } catch (err) {
-          alert("Microphone access denied or not supported.");
-          console.error(err);
-        }
-      } else {
-        // Stop Recording
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-          mediaRecorder.stop();
-        }
-        isRecording = false;
-        recBtn.textContent = "● REC";
-        recBtn.className = "rec-btn rec-start";
-      }
-    }
-
-    function playVoice() {
-      if (!recordedAudioUrl) return;
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-      }
-      currentAudio = new Audio(recordedAudioUrl);
-      recStatus.textContent = "Playing...";
-      currentAudio.play();
-      currentAudio.onended = () => {
-        recStatus.textContent = "Finished";
-      };
-    }
-
-    function downloadVoice() {
-      if (!recordedAudioUrl) return;
-      const a = document.createElement('a');
-      a.href = recordedAudioUrl;
-      a.download = `practice_voice_${Date.now()}.webm`;
-      a.click();
-    }
-
-    function formatTime(seconds) {
-      const sec = Math.max(0, Math.floor(seconds));
-      const m = Math.floor(sec / 60).toString().padStart(2, '0');
-      const s = (sec % 60).toString().padStart(2, '0');
-      const ms = Math.floor((seconds % 1) * 10);
-      return `${m}:${s}.${ms}`;
-    }
-
-    function updateTimeDisplay() {
-      if (!isDragging && isPlayerReady && player && typeof player.getCurrentTime === 'function') {
-        try {
-          const cur = player.getCurrentTime() || 0;
-          const dur = player.getDuration() || 0;
-          statusText.textContent = `${formatTime(cur)} / ${formatTime(dur)}`;
-        } catch (_) {}
-      }
-    }
-
-    function triggerHaptic() {
-      if (navigator.vibrate) {
-        navigator.vibrate(8);
-      }
-    }
-
-    /* Jog Dial Controls */
-    const dial = document.getElementById('jogDial');
-    const statusText = document.getElementById('statusText');
-    
-    let isDragging = false;
-    let startAngle = 0;
-    let baseTime = 0;
-    let totalTurnAngle = 0;
-    let visualRotation = 0;
-    let targetTime = 0;
-    let lastVibrateAngle = 0;
-
-    function getAngle(e) {
-      const rect = dial.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      
-      const x = e.clientX - centerX;
-      const y = e.clientY - centerY;
-      return Math.atan2(y, x) * (180 / Math.PI);
-    }
-
-    dial.addEventListener('pointerdown', (e) => {
-      if (e.target === centerBtn) return;
-      if (!isPlayerReady || !player || typeof player.getCurrentTime !== 'function') return;
-
-      isDragging = true;
-      dial.setPointerCapture(e.pointerId);
-
-      startAngle = getAngle(e);
-      totalTurnAngle = 0;
-      lastVibrateAngle = 0;
-      
-      try {
-        baseTime = player.getCurrentTime() || 0;
-      } catch (_) {
-        baseTime = 0;
-      }
-      targetTime = baseTime;
-      e.preventDefault();
-    });
-
-    dial.addEventListener('pointermove', (e) => {
-      if (!isDragging || !isPlayerReady || !player) return;
-
-      const currentAngle = getAngle(e);
-      let diff = currentAngle - startAngle;
-
-      if (diff > 180) diff -= 360;
-      if (diff < -180) diff += 360;
-
-      totalTurnAngle += diff;
-      visualRotation += diff;
-      dial.style.transform = `rotate(${visualRotation}deg)`;
-
-      if (Math.abs(totalTurnAngle - lastVibrateAngle) >= 15) {
-        triggerHaptic();
-        lastVibrateAngle = totalTurnAngle;
-      }
-
-      const deltaSeconds = (totalTurnAngle / 360) * secondsPerTurn;
-      let duration = 99999;
-      try {
-        if (typeof player.getDuration === 'function') {
-          duration = player.getDuration() || 99999;
-        }
-      } catch (_) {}
-
-      targetTime = Math.min(Math.max(0, baseTime + deltaSeconds), duration);
-
-      const sign = deltaSeconds >= 0 ? '+' : '';
-      statusText.textContent = `${formatTime(targetTime)} (${sign}${deltaSeconds.toFixed(1)}s)`;
-
-      startAngle = currentAngle;
-      e.preventDefault();
-    });
-
-    function stopPointer(e) {
-      if (isDragging) {
-        isDragging = false;
-        if (isPlayerReady && player && typeof player.seekTo === 'function') {
-          try {
-            player.seekTo(targetTime, true);
-          } catch (err) {
-            console.error("seekTo error:", err);
-          }
-        }
-        try {
-          dial.releasePointerCapture(e.pointerId);
-        } catch (_) {}
-      }
-    }
-
-    dial.addEventListener('pointerup', stopPointer);
-    dial.addEventListener('pointercancel', stopPointer);
-  </script>
+  dial.addEventListener('pointerup', stopPointer);
+  dial.addEventListener('pointercancel', stopPointer);
+</script>
 </body>
 </html>
