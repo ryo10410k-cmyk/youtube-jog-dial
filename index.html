@@ -357,6 +357,29 @@
       font-size: 11px;
       color: var(--text-sub);
     }
+
+    /* Buy Me a Coffee Support Button */
+    .support-box {
+      margin-top: 14px;
+      text-align: center;
+    }
+    .support-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      background: #FFDD00;
+      color: #000000;
+      font-size: 12px;
+      font-weight: bold;
+      text-decoration: none;
+      border-radius: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .support-btn:active {
+      transform: scale(0.96);
+    }
   </style>
 </head>
 <body>
@@ -445,6 +468,13 @@
 
   <div class="status" id="statusText">00:00.0 / 00:00.0</div>
   <div class="mode-hint" id="modeHint">SPEED: 1 Turn = 5 sec (MID)</div>
+
+  <!-- Buy Me a Coffee Support Button -->
+  <div class="support-box">
+    <a href="https://buymeacoffee.com/ryo10410k6" target="_blank" rel="noopener noreferrer" class="support-btn">
+      <span>☕ Buy me a coffee</span>
+    </a>
+  </div>
 
 </div>
 
