@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
@@ -198,13 +198,13 @@
   </div>
 
   <div class="search-box">
-    <input type="text" id="videoUrlInput" placeholder="YouTube URL（Shorts対応）/ 動画ID" />
+    <input type="text" id="videoUrlInput" placeholder="YouTube URL (Supports Shorts) / Video ID" />
     <button onclick="loadVideoFromInput()">LOAD</button>
-    <button class="fav-btn-add" onclick="saveToFavorites()">★保存</button>
+    <button class="fav-btn-add" onclick="saveToFavorites()">★ SAVE</button>
   </div>
 
   <div class="fav-section">
-    <div class="fav-title">★ お気に入り動画</div>
+    <div class="fav-title">★ FAVORITES</div>
     <div class="fav-list" id="favList"></div>
   </div>
 
@@ -279,7 +279,7 @@
     }
 
     function onPlayerError(event) {
-      statusText.textContent = "⚠️ 再生エラー（URLを確認してください）";
+      statusText.textContent = "⚠️ Playback Error (Please check URL)";
     }
 
     centerBtn.addEventListener('click', (e) => {
@@ -299,12 +299,12 @@
       }
     });
 
-    /* URL解析ロジック（URLパラメータや短縮URL・Shortsを完全分離） */
+    /* URL Parsing Logic */
     function extractVideoId(input) {
       if (!input) return null;
       let text = input.trim();
 
-      // 11文字のID直打ち
+      // 11-char ID direct input
       if (/^[a-zA-Z0-9_-]{11}$/.test(text)) {
         return text;
       }
@@ -327,7 +327,7 @@
         return idPart.split(/[?#&/]/)[0].substring(0, 11);
       }
 
-      // 埋め込みリンク形式 /embed/xxxx
+      // Embed link /embed/xxxx
       if (text.includes('/embed/')) {
         const idPart = text.split('/embed/')[1];
         return idPart.split(/[?#&/]/)[0].substring(0, 11);
@@ -344,7 +344,7 @@
       if (player && typeof player.loadVideoById === 'function') {
         try {
           player.loadVideoById(videoId);
-          statusText.textContent = "動画を読み込みました";
+          statusText.textContent = "Video loaded";
         } catch (err) {
           console.error("loadVideoById error:", err);
         }
@@ -356,14 +356,14 @@
       const vid = extractVideoId(input);
 
       if (!vid) {
-        alert("有効なYouTubeのURLまたはIDが見つかりませんでした。入力をご確認ください。");
+        alert("Valid YouTube URL or Video ID not found. Please check your input.");
         return;
       }
 
       playVideoById(vid);
     }
 
-    /* お気に入り機能 */
+    /* Favorites Feature */
     function getFavorites() {
       try {
         return JSON.parse(localStorage.getItem('my_fav_videos') || '[]');
@@ -373,7 +373,7 @@
     }
 
     async function saveToFavorites() {
-      let defaultTitle = "動画 " + (getFavorites().length + 1);
+      let defaultTitle = "Video " + (getFavorites().length + 1);
 
       try {
         if (player && typeof player.getVideoData === 'function' && player.getVideoData().title) {
@@ -387,7 +387,7 @@
         }
       } catch (_) {}
 
-      const label = prompt("お気に入りの名前を入力してください", defaultTitle);
+      const label = prompt("Enter a name for this favorite:", defaultTitle);
       if (!label) return;
 
       const favs = getFavorites();
@@ -411,7 +411,7 @@
       container.innerHTML = '';
 
       if (favs.length === 0) {
-        container.innerHTML = '<span style="font-size:12px;color:#aaa;">保存された動画はありません</span>';
+        container.innerHTML = '<span style="font-size:12px;color:#aaa;">No saved videos</span>';
         return;
       }
 
@@ -449,7 +449,7 @@
       }
     }
 
-    /* ダイヤル回転制御 */
+    /* Jog Dial Controls */
     const dial = document.getElementById('jogDial');
     const statusText = document.getElementById('statusText');
     
