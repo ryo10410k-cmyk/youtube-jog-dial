@@ -430,7 +430,7 @@
 </div>
 
 <script>
-  let activeMode = 'yt';
+  let activeMode = localStorage.getItem('last_active_tab') || 'yt';
   let player = null;
   let isPlayerReady = false;
   let secondsPerTurn = 5;
@@ -439,6 +439,7 @@
   let isUserSeekingBar = false;
   let currentLoadedLocalBlob = null;
   let currentLoadedLocalName = "";
+  let currentLocalFileKey = localStorage.getItem('last_played_local_id') || "";
 
   const localVideo = document.getElementById('localVideo');
   const localSeekbarContainer = document.getElementById('localSeekbarContainer');
@@ -514,7 +515,7 @@
   }
 
   /* ----------------------------------------------------
-     2. YouTube API
+     2. YouTube API Setup & Resume Fix
   ---------------------------------------------------- */
   var tag = document.createElement('script');
   tag.src = "https://www.youtube.com/iframe_api";
@@ -530,15 +531,20 @@
       playerVars: {
         'playsinline': 1,
         'rel': 0,
-        'controls': 1,
-        'start': Math.floor(savedTime)
+        'controls': 1
       },
       events: {
-        'onReady': function() {
+        'onReady': function(e) {
           isPlayerReady = true;
           player.setPlaybackRate(playbackRate);
+
+          // Seek to previous timestamp on ready
+          if (savedTime > 0) {
+            player.seekTo(savedTime, true);
+          }
+
           setInterval(updateTimeAndResume, 250);
-          renderFavorites();
+          initAppOnLoad();
         },
         'onStateChange': onPlayerStateChange,
         'onError': () => { statusText.textContent = "⚠️ Playback Error"; }
@@ -551,7 +557,19 @@
     centerBtn.textContent = (event.data === YT.PlayerState.PLAYING) ? 'PAUSE' : 'PLAY';
   }
 
-  /* Unified Media Control */
+  async function initAppOnLoad() {
+    renderFavorites();
+    if (activeMode === 'local' && currentLocalFileKey) {
+      switchSourceTab('local');
+      await playLocalFromFavorites(currentLocalFileKey);
+    } else {
+      switchSourceTab('yt');
+    }
+  }
+
+  /* ----------------------------------------------------
+     Unified Media Controls
+  ---------------------------------------------------- */
   function getCurrentMediaTime() {
     if (activeMode === 'yt' && isPlayerReady && player && typeof player.getCurrentTime === 'function') {
       return player.getCurrentTime() || 0;
@@ -616,7 +634,7 @@
     isUserSeekingBar = false;
   }
 
-  /* Resume & Time Display */
+  /* Reliable Resume & Time Display */
   function updateTimeAndResume() {
     if (!isDragging) {
       const cur = getCurrentMediaTime();
@@ -627,13 +645,24 @@
         updateSeekbar();
       }
 
-      if (activeMode === 'yt' && cur > 1) {
+      // Save position for resume
+      if (activeMode === 'yt' && cur > 0.5) {
         localStorage.setItem('resume_time_' + currentVideoId, cur);
-      } else if (activeMode === 'local' && localVideo.dataset.fileKey && cur > 1) {
-        localStorage.setItem('resume_local_' + localVideo.dataset.fileKey, cur);
+      } else if (activeMode === 'local' && currentLocalFileKey && cur > 0.5) {
+        localStorage.setItem('resume_local_' + currentLocalFileKey, cur);
       }
     }
   }
+
+  // Backup save on window unload / close
+  window.addEventListener('beforeunload', () => {
+    const cur = getCurrentMediaTime();
+    if (activeMode === 'yt' && cur > 0.5) {
+      localStorage.setItem('resume_time_' + currentVideoId, cur);
+    } else if (activeMode === 'local' && currentLocalFileKey && cur > 0.5) {
+      localStorage.setItem('resume_local_' + currentLocalFileKey, cur);
+    }
+  });
 
   /* Playback Speed Control */
   function setPlaybackRate(rate, btn) {
@@ -651,6 +680,8 @@
   /* Source Tab Switcher */
   function switchSourceTab(mode) {
     activeMode = mode;
+    localStorage.setItem('last_active_tab', mode);
+
     document.getElementById('tabYt').classList.toggle('active', mode === 'yt');
     document.getElementById('tabLocal').classList.toggle('active', mode === 'local');
     document.getElementById('rowYt').style.display = mode === 'yt' ? 'flex' : 'none';
@@ -672,7 +703,7 @@
     renderFavorites();
   }
 
-  /* Local File Handling */
+  /* Local File Handling & Immediate Resume */
   function handleLocalFileSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -682,6 +713,9 @@
     document.getElementById('localFileLabelText').textContent = '📄 ' + file.name;
 
     const fileKey = 'file_' + file.name + '_' + file.size;
+    currentLocalFileKey = fileKey;
+    localStorage.setItem('last_played_local_id', fileKey);
+
     playLocalBlob(file, fileKey);
   }
 
@@ -692,15 +726,17 @@
     const fileUrl = URL.createObjectURL(blob);
     localVideo.src = fileUrl;
     localVideo.playbackRate = playbackRate;
-    localVideo.dataset.fileKey = fileKey;
+    currentLocalFileKey = fileKey;
+    localStorage.setItem('last_played_local_id', fileKey);
 
     const savedTime = parseFloat(localStorage.getItem('resume_local_' + fileKey) || '0');
+
     localVideo.onloadedmetadata = () => {
       localSeekbarContainer.style.display = 'flex';
       localSeekbar.max = localVideo.duration;
       localDurationTime.textContent = formatTimeMinSec(localVideo.duration);
 
-      if (savedTime < localVideo.duration) {
+      if (savedTime > 0 && savedTime < localVideo.duration) {
         localVideo.currentTime = savedTime;
       }
       updateSeekbar();
@@ -709,15 +745,12 @@
 
     localVideo.onplay = () => { centerBtn.textContent = 'PAUSE'; };
     localVideo.onpause = () => { centerBtn.textContent = 'PLAY'; };
-    localVideo.play();
   }
 
   async function playLocalFromFavorites(id) {
     const item = await getMediaByIdFromDB(id);
-    if (!item) {
-      alert("File not found in storage.");
-      return;
-    }
+    if (!item) return;
+
     document.getElementById('localFileLabelText').textContent = '📄 ' + item.title;
     currentLoadedLocalBlob = item.blob;
     currentLoadedLocalName = item.title;
@@ -806,6 +839,8 @@
 
     const fileKey = 'db_' + Date.now();
     await saveMediaToDB(fileKey, label, currentLoadedLocalBlob);
+    currentLocalFileKey = fileKey;
+    localStorage.setItem('last_played_local_id', fileKey);
     renderFavorites();
   }
 
@@ -821,6 +856,10 @@
     e.stopPropagation();
     await deleteMediaFromDB(id);
     localStorage.removeItem('resume_local_' + id);
+    if (currentLocalFileKey === id) {
+      currentLocalFileKey = "";
+      localStorage.removeItem('last_played_local_id');
+    }
     renderFavorites();
   }
 
