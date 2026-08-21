@@ -56,6 +56,43 @@
       background: #000;
     }
 
+    /* Local File Seekbar */
+    .local-seekbar-container {
+      width: 100%;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      box-sizing: border-box;
+    }
+    .local-seekbar {
+      flex: 1;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: #e0e0e0;
+      border-radius: 3px;
+      outline: none;
+    }
+    .local-seekbar::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+    }
+    .local-time-label {
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--text-sub);
+      font-variant-numeric: tabular-nums;
+    }
+
     /* Source Selector & Input */
     .source-panel {
       width: 100%;
@@ -312,6 +349,13 @@
     <video id="localVideo" playsinline></video>
   </div>
 
+  <!-- Local File Seekbar (visible only in Local File mode) -->
+  <div id="localSeekbarContainer" class="local-seekbar-container">
+    <span id="localCurrentTime" class="local-time-label">00:00</span>
+    <input type="range" id="localSeekbar" class="local-seekbar" min="0" max="100" value="0" step="0.1" oninput="onSeekbarInput(this.value)" onchange="onSeekbarChange(this.value)">
+    <span id="localDurationTime" class="local-time-label">00:00</span>
+  </div>
+
   <!-- Unified Source Panel -->
   <div class="source-panel">
     <div class="source-tabs">
@@ -351,12 +395,12 @@
       <button id="playVoiceBtn" class="rec-btn rec-play" onclick="playVoice()" disabled>▶ VOICE</button>
     </div>
 
-    <!-- Playback Rate Pill -->
+    <!-- Playback Rate Pill (0.5x, 0.75x, 1.0x, 1.25x) -->
     <div class="speed-select">
+      <button class="speed-btn" onclick="setPlaybackRate(0.5, this)">0.5x</button>
       <button class="speed-btn" onclick="setPlaybackRate(0.75, this)">0.75x</button>
       <button class="speed-btn active" onclick="setPlaybackRate(1.0, this)">1.0x</button>
       <button class="speed-btn" onclick="setPlaybackRate(1.25, this)">1.25x</button>
-      <button class="speed-btn" onclick="setPlaybackRate(1.5, this)">1.5x</button>
     </div>
   </div>
 
@@ -381,13 +425,19 @@
 </div>
 
 <script>
-  let activeMode = 'yt'; // 'yt' or 'local'
+  let activeMode = 'yt';
   let player = null;
   let isPlayerReady = false;
   let secondsPerTurn = 5;
   let playbackRate = 1.0;
   let currentVideoId = localStorage.getItem('last_played_video') || 'dQw4w9WgXcQ';
+  let isUserSeekingBar = false;
+
   const localVideo = document.getElementById('localVideo');
+  const localSeekbarContainer = document.getElementById('localSeekbarContainer');
+  const localSeekbar = document.getElementById('localSeekbar');
+  const localCurrentTime = document.getElementById('localCurrentTime');
+  const localDurationTime = document.getElementById('localDurationTime');
   const centerBtn = document.getElementById('centerBtn');
   const statusText = document.getElementById('statusText');
 
@@ -427,7 +477,7 @@
     centerBtn.textContent = (event.data === YT.PlayerState.PLAYING) ? 'PAUSE' : 'PLAY';
   }
 
-  /* Unified Media Control Abstraction */
+  /* Unified Media Control */
   function getCurrentMediaTime() {
     if (activeMode === 'yt' && isPlayerReady && player && typeof player.getCurrentTime === 'function') {
       return player.getCurrentTime() || 0;
@@ -451,6 +501,7 @@
       player.seekTo(sec, true);
     } else if (activeMode === 'local') {
       localVideo.currentTime = sec;
+      updateSeekbar();
     }
   }
 
@@ -471,14 +522,37 @@
     togglePlayPause();
   });
 
-  /* ③ Resume Time Tracker */
+  /* Seekbar Controls for Local Files */
+  function updateSeekbar() {
+    if (activeMode === 'local' && !isUserSeekingBar && localVideo.duration) {
+      localSeekbar.max = localVideo.duration;
+      localSeekbar.value = localVideo.currentTime;
+      localCurrentTime.textContent = formatTimeMinSec(localVideo.currentTime);
+      localDurationTime.textContent = formatTimeMinSec(localVideo.duration);
+    }
+  }
+
+  function onSeekbarInput(val) {
+    isUserSeekingBar = true;
+    localCurrentTime.textContent = formatTimeMinSec(val);
+  }
+
+  function onSeekbarChange(val) {
+    localVideo.currentTime = parseFloat(val);
+    isUserSeekingBar = false;
+  }
+
+  /* Resume & Time Display */
   function updateTimeAndResume() {
     if (!isDragging) {
       const cur = getCurrentMediaTime();
       const dur = getMediaDuration();
       statusText.textContent = `${formatTime(cur)} / ${formatTime(dur)}`;
 
-      // Save position for resume
+      if (activeMode === 'local') {
+        updateSeekbar();
+      }
+
       if (activeMode === 'yt' && cur > 1) {
         localStorage.setItem('resume_time_' + currentVideoId, cur);
       } else if (activeMode === 'local' && localVideo.dataset.fileKey && cur > 1) {
@@ -487,7 +561,7 @@
     }
   }
 
-  /* ① Playback Speed Control */
+  /* Playback Speed Control */
   function setPlaybackRate(rate, btn) {
     playbackRate = rate;
     document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
@@ -500,7 +574,7 @@
     }
   }
 
-  /* ② Tab Switching & Local File Loader */
+  /* Source Tab Switcher */
   function switchSourceTab(mode) {
     activeMode = mode;
     document.getElementById('tabYt').classList.toggle('active', mode === 'yt');
@@ -511,11 +585,15 @@
     if (mode === 'yt') {
       localVideo.pause();
       localVideo.style.display = 'none';
+      localSeekbarContainer.style.display = 'none';
       document.getElementById('player').style.display = 'block';
     } else {
       if (player && typeof player.pauseVideo === 'function') player.pauseVideo();
       document.getElementById('player').style.display = 'none';
       localVideo.style.display = 'block';
+      if (localVideo.src) {
+        localSeekbarContainer.style.display = 'flex';
+      }
     }
   }
 
@@ -528,12 +606,16 @@
     localVideo.playbackRate = playbackRate;
     localVideo.dataset.fileKey = file.name + '_' + file.size;
 
-    // Check resume for this file
     const savedTime = parseFloat(localStorage.getItem('resume_local_' + localVideo.dataset.fileKey) || '0');
     localVideo.onloadedmetadata = () => {
+      localSeekbarContainer.style.display = 'flex';
+      localSeekbar.max = localVideo.duration;
+      localDurationTime.textContent = formatTimeMinSec(localVideo.duration);
+
       if (savedTime < localVideo.duration) {
         localVideo.currentTime = savedTime;
       }
+      updateSeekbar();
       statusText.textContent = `${formatTime(localVideo.currentTime)} / ${formatTime(localVideo.duration)}`;
     };
 
@@ -695,6 +777,13 @@
     const s = (sec % 60).toString().padStart(2, '0');
     const ms = Math.floor((seconds % 1) * 10);
     return `${m}:${s}.${ms}`;
+  }
+
+  function formatTimeMinSec(seconds) {
+    const sec = Math.max(0, Math.floor(seconds));
+    const m = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = (sec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
   }
 
   function triggerHaptic() {
