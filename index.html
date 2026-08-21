@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
+  <title>YouTube Jog Dial - Listening</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #f4f4f4;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: pan-y;
+    }
+    #player-container {
+      width: 100%;
+      max-width: 480px;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+    #player {
+      width: 100%;
+      height: 100%;
+    }
+
+    .search-box {
+      width: 100%;
+      max-width: 480px;
+      margin-top: 14px;
+      display: flex;
+      gap: 6px;
+    }
+    .search-box input {
+      flex: 1;
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      outline: none;
+    }
+    .search-box button {
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: bold;
+      background: #222;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .fav-btn-add {
+      background: #ff9500 !important;
+    }
+
+    .fav-section {
+      width: 100%;
+      max-width: 480px;
+      margin-top: 12px;
+    }
+    .fav-title {
+      font-size: 12px;
+      font-weight: bold;
+      color: #777;
+      margin-bottom: 6px;
+    }
+    .fav-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+    .fav-chip {
+      display: flex;
+      align-items: center;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      padding: 5px 10px;
+      font-size: 12px;
+      color: #333;
+      cursor: pointer;
+      max-width: 220px;
+    }
+    .fav-chip-title {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .fav-chip-del {
+      margin-left: 6px;
+      color: #999;
+      font-weight: bold;
+      cursor: pointer;
+      padding: 0 2px;
+    }
+
+    .mode-selector {
+      margin-top: 14px;
+      display: flex;
+      gap: 8px;
+    }
+    .mode-btn {
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      border: 1px solid #dcdcdc;
+      border-radius: 16px;
+      background: #ffffff;
+      color: #666;
+      cursor: pointer;
+      outline: none;
+    }
+    .mode-btn.active {
+      background: #007aff;
+      color: #ffffff;
+      border-color: #007aff;
+    }
+
+    .dial-wrapper {
+      margin-top: 16px;
+      position: relative;
+      touch-action: none !important;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .dial {
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #e6e6e6, #ffffff);
+      box-shadow: 6px 6px 16px #c8c8c8, -6px -6px 16px #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      touch-action: none !important;
+    }
+    .dial-indicator {
+      position: absolute;
+      top: 14px;
+      width: 16px;
+      height: 16px;
+      background-color: #ff3b30;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .dial-center {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: #ececec;
+      box-shadow: 3px 3px 6px #d1d1d1, -3px -3px 6px #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #444;
+      font-size: 13px;
+      cursor: pointer;
+      z-index: 10;
+      pointer-events: auto;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .dial-center:active {
+      transform: scale(0.94);
+      box-shadow: inset 2px 2px 5px #d1d1d1, inset -2px -2px 5px #ffffff;
+    }
+
+    .status {
+      margin-top: 12px;
+      font-size: 16px;
+      color: #111;
+      font-weight: bold;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    .mode-hint {
+      margin-top: 4px;
+      font-size: 12px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="player-container">
+    <div id="player"></div>
+  </div>
+
+  <div class="search-box">
+    <input type="text" id="videoUrlInput" placeholder="YouTube URL（Shorts対応）/ 動画ID" />
+    <button onclick="loadVideoFromInput()">LOAD</button>
+    <button class="fav-btn-add" onclick="saveToFavorites()">★保存</button>
+  </div>
+
+  <div class="fav-section">
+    <div class="fav-title">★ お気に入り動画</div>
+    <div class="fav-list" id="favList"></div>
+  </div>
+
+  <div class="mode-selector">
+    <button class="mode-btn" onclick="setSensitivity(3, this)">FINE · 3s</button>
+    <button class="mode-btn active" onclick="setSensitivity(5, this)">MID · 5s</button>
+    <button class="mode-btn" onclick="setSensitivity(10, this)">COARSE · 10s</button>
+  </div>
+
+  <div class="dial-wrapper">
+    <div class="dial" id="jogDial">
+      <div class="dial-indicator"></div>
+      <div class="dial-center" id="centerBtn">PLAY</div>
+    </div>
+  </div>
+
+  <div class="status" id="statusText">00:00.0 / 00:00.0</div>
+  <div class="mode-hint" id="modeHint">SPEED: 1 Turn = 5 sec (MID)</div>
+
+  <script>
+    /* 1. YouTube API */
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    let player;
+    let isPlayerReady = false;
+    let secondsPerTurn = 5;
+    let currentVideoId = localStorage.getItem('last_played_video') || 'dQw4w9WgXcQ';
+
+    function setSensitivity(sec, btnElement) {
+      secondsPerTurn = sec;
+      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+      btnElement.classList.add('active');
+
+      const label = sec === 3 ? 'FINE' : (sec === 5 ? 'MID' : 'COARSE');
+      document.getElementById('modeHint').textContent = `SPEED: 1 Turn = ${sec} sec (${label})`;
+    }
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        height: '100%',
+        width: '100%',
+        videoId: currentVideoId,
+        playerVars: {
+          'playsinline': 1,
+          'rel': 0,
+          'controls': 1,
+          'cc_load_policy': 1
+        },
+        events: {
+          'onReady': function() {
+            isPlayerReady = true;
+            setInterval(updateTimeDisplay, 200);
+            renderFavorites();
+          },
+          'onStateChange': onPlayerStateChange,
+          'onError': onPlayerError
+        }
+      });
+    }
+
+    const centerBtn = document.getElementById('centerBtn');
+
+    function onPlayerStateChange(event) {
+      if (event.data === YT.PlayerState.PLAYING) {
+        centerBtn.textContent = 'PAUSE';
+      } else {
+        centerBtn.textContent = 'PLAY';
+      }
+    }
+
+    function onPlayerError(event) {
+      statusText.textContent = "⚠️ 再生エラー（URLを確認してください）";
+    }
+
+    centerBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!isPlayerReady || !player || typeof player.getPlayerState !== 'function') return;
+
+      try {
+        const state = player.getPlayerState();
+        if (state === YT.PlayerState.PLAYING) {
+          player.pauseVideo();
+        } else {
+          player.playVideo();
+        }
+        triggerHaptic();
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    /* URL解析ロジック（URLパラメータや短縮URL・Shortsを完全分離） */
+    function extractVideoId(input) {
+      if (!input) return null;
+      let text = input.trim();
+
+      // 11文字のID直打ち
+      if (/^[a-zA-Z0-9_-]{11}$/.test(text)) {
+        return text;
+      }
+
+      // youtu.be/xxxx
+      if (text.includes('youtu.be/')) {
+        const idPart = text.split('youtu.be/')[1];
+        return idPart.split(/[?#&/]/)[0].substring(0, 11);
+      }
+
+      // youtube.com/shorts/xxxx
+      if (text.includes('/shorts/')) {
+        const idPart = text.split('/shorts/')[1];
+        return idPart.split(/[?#&/]/)[0].substring(0, 11);
+      }
+
+      // youtube.com/watch?v=xxxx
+      if (text.includes('v=')) {
+        const idPart = text.split('v=')[1];
+        return idPart.split(/[?#&/]/)[0].substring(0, 11);
+      }
+
+      // 埋め込みリンク形式 /embed/xxxx
+      if (text.includes('/embed/')) {
+        const idPart = text.split('/embed/')[1];
+        return idPart.split(/[?#&/]/)[0].substring(0, 11);
+      }
+
+      return null;
+    }
+
+    function playVideoById(videoId) {
+      if (!videoId) return;
+      currentVideoId = videoId;
+      localStorage.setItem('last_played_video', videoId);
+
+      if (player && typeof player.loadVideoById === 'function') {
+        try {
+          player.loadVideoById(videoId);
+          statusText.textContent = "動画を読み込みました";
+        } catch (err) {
+          console.error("loadVideoById error:", err);
+        }
+      }
+    }
+
+    function loadVideoFromInput() {
+      const input = document.getElementById('videoUrlInput').value;
+      const vid = extractVideoId(input);
+
+      if (!vid) {
+        alert("有効なYouTubeのURLまたはIDが見つかりませんでした。入力をご確認ください。");
+        return;
+      }
+
+      playVideoById(vid);
+    }
+
+    /* お気に入り機能 */
+    function getFavorites() {
+      try {
+        return JSON.parse(localStorage.getItem('my_fav_videos') || '[]');
+      } catch (_) {
+        return [];
+      }
+    }
+
+    async function saveToFavorites() {
+      let defaultTitle = "動画 " + (getFavorites().length + 1);
+
+      try {
+        if (player && typeof player.getVideoData === 'function' && player.getVideoData().title) {
+          defaultTitle = player.getVideoData().title;
+        } else {
+          const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${currentVideoId}`);
+          const data = await res.json();
+          if (data && data.title) {
+            defaultTitle = data.title;
+          }
+        }
+      } catch (_) {}
+
+      const label = prompt("お気に入りの名前を入力してください", defaultTitle);
+      if (!label) return;
+
+      const favs = getFavorites();
+      favs.push({ title: label, id: currentVideoId });
+      localStorage.setItem('my_fav_videos', JSON.stringify(favs));
+      renderFavorites();
+    }
+
+    function deleteFavorite(index, e) {
+      e.stopPropagation();
+      const favs = getFavorites();
+      favs.splice(index, 1);
+      localStorage.setItem('my_fav_videos', JSON.stringify(favs));
+      renderFavorites();
+    }
+
+    function renderFavorites() {
+      const container = document.getElementById('favList');
+      if (!container) return;
+      const favs = getFavorites();
+      container.innerHTML = '';
+
+      if (favs.length === 0) {
+        container.innerHTML = '<span style="font-size:12px;color:#aaa;">保存された動画はありません</span>';
+        return;
+      }
+
+      favs.forEach((item, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'fav-chip';
+        chip.title = item.title;
+        chip.innerHTML = `<span class="fav-chip-title">▶ ${item.title}</span><span class="fav-chip-del" onclick="deleteFavorite(${idx}, event)">×</span>`;
+        chip.onclick = () => playVideoById(item.id);
+        container.appendChild(chip);
+      });
+    }
+
+    function formatTime(seconds) {
+      const sec = Math.max(0, Math.floor(seconds));
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      const ms = Math.floor((seconds % 1) * 10);
+      return `${m}:${s}.${ms}`;
+    }
+
+    function updateTimeDisplay() {
+      if (!isDragging && isPlayerReady && player && typeof player.getCurrentTime === 'function') {
+        try {
+          const cur = player.getCurrentTime() || 0;
+          const dur = player.getDuration() || 0;
+          statusText.textContent = `${formatTime(cur)} / ${formatTime(dur)}`;
+        } catch (_) {}
+      }
+    }
+
+    function triggerHaptic() {
+      if (navigator.vibrate) {
+        navigator.vibrate(8);
+      }
+    }
+
+    /* ダイヤル回転制御 */
+    const dial = document.getElementById('jogDial');
+    const statusText = document.getElementById('statusText');
+    
+    let isDragging = false;
+    let startAngle = 0;
+    let baseTime = 0;
+    let totalTurnAngle = 0;
+    let visualRotation = 0;
+    let targetTime = 0;
+    let lastVibrateAngle = 0;
+
+    function getAngle(e) {
+      const rect = dial.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      const x = e.clientX - centerX;
+      const y = e.clientY - centerY;
+      return Math.atan2(y, x) * (180 / Math.PI);
+    }
+
+    dial.addEventListener('pointerdown', (e) => {
+      if (e.target === centerBtn) return;
+      if (!isPlayerReady || !player || typeof player.getCurrentTime !== 'function') return;
+
+      isDragging = true;
+      dial.setPointerCapture(e.pointerId);
+
+      startAngle = getAngle(e);
+      totalTurnAngle = 0;
+      lastVibrateAngle = 0;
+      
+      try {
+        baseTime = player.getCurrentTime() || 0;
+      } catch (_) {
+        baseTime = 0;
+      }
+      targetTime = baseTime;
+      e.preventDefault();
+    });
+
+    dial.addEventListener('pointermove', (e) => {
+      if (!isDragging || !isPlayerReady || !player) return;
+
+      const currentAngle = getAngle(e);
+      let diff = currentAngle - startAngle;
+
+      if (diff > 180) diff -= 360;
+      if (diff < -180) diff += 360;
+
+      totalTurnAngle += diff;
+      visualRotation += diff;
+      dial.style.transform = `rotate(${visualRotation}deg)`;
+
+      if (Math.abs(totalTurnAngle - lastVibrateAngle) >= 15) {
+        triggerHaptic();
+        lastVibrateAngle = totalTurnAngle;
+      }
+
+      const deltaSeconds = (totalTurnAngle / 360) * secondsPerTurn;
+      let duration = 99999;
+      try {
+        if (typeof player.getDuration === 'function') {
+          duration = player.getDuration() || 99999;
+        }
+      } catch (_) {}
+
+      targetTime = Math.min(Math.max(0, baseTime + deltaSeconds), duration);
+
+      const sign = deltaSeconds >= 0 ? '+' : '';
+      statusText.textContent = `${formatTime(targetTime)} (${sign}${deltaSeconds.toFixed(1)}s)`;
+
+      startAngle = currentAngle;
+      e.preventDefault();
+    });
+
+    function stopPointer(e) {
+      if (isDragging) {
+        isDragging = false;
+        if (isPlayerReady && player && typeof player.seekTo === 'function') {
+          try {
+            player.seekTo(targetTime, true);
+          } catch (err) {
+            console.error("seekTo error:", err);
+          }
+        }
+        try {
+          dial.releasePointerCapture(e.pointerId);
+        } catch (_) {}
+      }
+    }
+
+    dial.addEventListener('pointerup', stopPointer);
+    dial.addEventListener('pointercancel', stopPointer);
+  </script>
+</body>
+</html>
