@@ -31,10 +31,78 @@
       height: 100%;
     }
 
-    .search-box {
+    /* Voice Practice Box */
+    .recorder-box {
       width: 100%;
       max-width: 480px;
       margin-top: 14px;
+      padding: 10px 14px;
+      box-sizing: border-box;
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .rec-btn {
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: bold;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    .rec-start {
+      background: #ff3b30;
+      color: #fff;
+    }
+    .rec-recording {
+      background: #333;
+      color: #fff;
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+    .rec-play {
+      background: #34c759;
+      color: #fff;
+    }
+    .rec-play:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .rec-status {
+      font-size: 12px;
+      font-weight: bold;
+      color: #666;
+      flex: 1;
+      text-align: center;
+    }
+    .rec-dl-btn {
+      background: transparent;
+      border: 1px solid #ccc;
+      color: #555;
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: none;
+    }
+
+    .search-box {
+      width: 100%;
+      max-width: 480px;
+      margin-top: 10px;
       display: flex;
       gap: 6px;
     }
@@ -197,6 +265,14 @@
     <div id="player"></div>
   </div>
 
+  <!-- Voice Recorder Section -->
+  <div class="recorder-box">
+    <button id="recBtn" class="rec-btn rec-start" onclick="toggleRecording()">● REC</button>
+    <button id="playVoiceBtn" class="rec-btn rec-play" onclick="playVoice()" disabled>▶ MY VOICE</button>
+    <div id="recStatus" class="rec-status">Ready</div>
+    <button id="dlVoiceBtn" class="rec-dl-btn" onclick="downloadVoice()">SAVE</button>
+  </div>
+
   <div class="search-box">
     <input type="text" id="videoUrlInput" placeholder="YouTube URL (Supports Shorts) / Video ID" />
     <button onclick="loadVideoFromInput()">LOAD</button>
@@ -304,35 +380,23 @@
       if (!input) return null;
       let text = input.trim();
 
-      // 11-char ID direct input
-      if (/^[a-zA-Z0-9_-]{11}$/.test(text)) {
-        return text;
-      }
-
-      // youtu.be/xxxx
+      if (/^[a-zA-Z0-9_-]{11}$/.test(text)) return text;
       if (text.includes('youtu.be/')) {
         const idPart = text.split('youtu.be/')[1];
         return idPart.split(/[?#&/]/)[0].substring(0, 11);
       }
-
-      // youtube.com/shorts/xxxx
       if (text.includes('/shorts/')) {
         const idPart = text.split('/shorts/')[1];
         return idPart.split(/[?#&/]/)[0].substring(0, 11);
       }
-
-      // youtube.com/watch?v=xxxx
       if (text.includes('v=')) {
         const idPart = text.split('v=')[1];
         return idPart.split(/[?#&/]/)[0].substring(0, 11);
       }
-
-      // Embed link /embed/xxxx
       if (text.includes('/embed/')) {
         const idPart = text.split('/embed/')[1];
         return idPart.split(/[?#&/]/)[0].substring(0, 11);
       }
-
       return null;
     }
 
@@ -359,7 +423,6 @@
         alert("Valid YouTube URL or Video ID not found. Please check your input.");
         return;
       }
-
       playVideoById(vid);
     }
 
@@ -381,9 +444,7 @@
         } else {
           const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${currentVideoId}`);
           const data = await res.json();
-          if (data && data.title) {
-            defaultTitle = data.title;
-          }
+          if (data && data.title) defaultTitle = data.title;
         }
       } catch (_) {}
 
@@ -423,6 +484,85 @@
         chip.onclick = () => playVideoById(item.id);
         container.appendChild(chip);
       });
+    }
+
+    /* Voice Recorder Logic (MediaRecorder API) */
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recordedAudioUrl = null;
+    let currentAudio = null;
+    let isRecording = false;
+
+    const recBtn = document.getElementById('recBtn');
+    const playVoiceBtn = document.getElementById('playVoiceBtn');
+    const recStatus = document.getElementById('recStatus');
+    const dlVoiceBtn = document.getElementById('dlVoiceBtn');
+
+    async function toggleRecording() {
+      if (!isRecording) {
+        // Start Recording
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioChunks = [];
+          mediaRecorder = new MediaRecorder(stream);
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl);
+            recordedAudioUrl = URL.createObjectURL(audioBlob);
+
+            playVoiceBtn.disabled = false;
+            dlVoiceBtn.style.display = 'inline-block';
+            recStatus.textContent = "Recorded";
+            
+            // Stop mic track
+            stream.getTracks().forEach(track => track.stop());
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+          recBtn.textContent = "■ STOP";
+          recBtn.className = "rec-btn rec-recording";
+          recStatus.textContent = "Recording...";
+        } catch (err) {
+          alert("Microphone access denied or not supported.");
+          console.error(err);
+        }
+      } else {
+        // Stop Recording
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          mediaRecorder.stop();
+        }
+        isRecording = false;
+        recBtn.textContent = "● REC";
+        recBtn.className = "rec-btn rec-start";
+      }
+    }
+
+    function playVoice() {
+      if (!recordedAudioUrl) return;
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      }
+      currentAudio = new Audio(recordedAudioUrl);
+      recStatus.textContent = "Playing...";
+      currentAudio.play();
+      currentAudio.onended = () => {
+        recStatus.textContent = "Finished";
+      };
+    }
+
+    function downloadVoice() {
+      if (!recordedAudioUrl) return;
+      const a = document.createElement('a');
+      a.href = recordedAudioUrl;
+      a.download = `practice_voice_${Date.now()}.webm`;
+      a.click();
     }
 
     function formatTime(seconds) {
