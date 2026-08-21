@@ -158,10 +158,26 @@
       border: 1px dashed var(--border);
       border-radius: 6px;
       font-size: 12px;
-      color: #555;
+      font-weight: 500;
+      color: #444;
       cursor: pointer;
-      overflow: hidden;
+      transition: background 0.15s;
+    }
+    .file-label:active {
+      background: #e4e4e8;
+    }
+
+    /* Current File Info Banner */
+    .current-file-badge {
+      display: none;
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--text-sub);
+      background: #f4f4f6;
+      padding: 4px 8px;
+      border-radius: 4px;
       white-space: nowrap;
+      overflow: hidden;
       text-overflow: ellipsis;
     }
 
@@ -375,12 +391,16 @@
     </div>
 
     <!-- Local File Input Row -->
-    <div id="rowLocal" class="input-row" style="display: none;">
-      <label class="file-label">
-        <span id="localFileLabelText">📁 Choose File</span>
-        <input type="file" id="localFileInput" accept="video/*,audio/*" style="display:none;" onchange="handleLocalFileSelect(event)">
-      </label>
-      <button class="action-btn btn-fav" onclick="saveLocalToFavorites()">★ SAVE</button>
+    <div id="rowLocal" style="display: none; flex-direction: column;">
+      <div class="input-row">
+        <label class="file-label">
+          <span>📁 Choose File</span>
+          <input type="file" id="localFileInput" accept="video/*,audio/*" style="display:none;" onchange="handleLocalFileSelect(event)">
+        </label>
+        <button class="action-btn btn-fav" onclick="saveLocalToFavorites()">★ SAVE</button>
+      </div>
+      <!-- Dedicated Now Playing File Label -->
+      <div id="currentFileBadge" class="current-file-badge"></div>
     </div>
   </div>
 
@@ -448,6 +468,7 @@
   const localDurationTime = document.getElementById('localDurationTime');
   const centerBtn = document.getElementById('centerBtn');
   const statusText = document.getElementById('statusText');
+  const currentFileBadge = document.getElementById('currentFileBadge');
 
   /* ----------------------------------------------------
      1. IndexedDB Helper for Local Files
@@ -538,7 +559,6 @@
           isPlayerReady = true;
           player.setPlaybackRate(playbackRate);
 
-          // Seek to previous timestamp on ready
           if (savedTime > 0) {
             player.seekTo(savedTime, true);
           }
@@ -645,7 +665,6 @@
         updateSeekbar();
       }
 
-      // Save position for resume
       if (activeMode === 'yt' && cur > 0.5) {
         localStorage.setItem('resume_time_' + currentVideoId, cur);
       } else if (activeMode === 'local' && currentLocalFileKey && cur > 0.5) {
@@ -654,7 +673,6 @@
     }
   }
 
-  // Backup save on window unload / close
   window.addEventListener('beforeunload', () => {
     const cur = getCurrentMediaTime();
     if (activeMode === 'yt' && cur > 0.5) {
@@ -703,20 +721,25 @@
     renderFavorites();
   }
 
-  /* Local File Handling & Immediate Resume */
+  /* Local File Handling */
   function handleLocalFileSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
 
     currentLoadedLocalBlob = file;
     currentLoadedLocalName = file.name;
-    document.getElementById('localFileLabelText').textContent = '📄 ' + file.name;
+
+    // Show currently playing label
+    currentFileBadge.style.display = 'block';
+    currentFileBadge.textContent = '▶ Playing: ' + file.name;
 
     const fileKey = 'file_' + file.name + '_' + file.size;
     currentLocalFileKey = fileKey;
     localStorage.setItem('last_played_local_id', fileKey);
 
     playLocalBlob(file, fileKey);
+    // Reset file input so user can re-select the same file if needed
+    e.target.value = '';
   }
 
   function playLocalBlob(blob, fileKey) {
@@ -751,7 +774,9 @@
     const item = await getMediaByIdFromDB(id);
     if (!item) return;
 
-    document.getElementById('localFileLabelText').textContent = '📄 ' + item.title;
+    currentFileBadge.style.display = 'block';
+    currentFileBadge.textContent = '▶ Playing: ' + item.title;
+
     currentLoadedLocalBlob = item.blob;
     currentLoadedLocalName = item.title;
     playLocalBlob(item.blob, id);
@@ -806,7 +831,7 @@
   }
 
   /* ----------------------------------------------------
-     3. Favorites Management (YouTube & IndexedDB Local)
+     3. Favorites Management
   ---------------------------------------------------- */
   function getFavorites() {
     try { return JSON.parse(localStorage.getItem('my_fav_videos') || '[]'); } catch (_) { return []; }
@@ -859,6 +884,7 @@
     if (currentLocalFileKey === id) {
       currentLocalFileKey = "";
       localStorage.removeItem('last_played_local_id');
+      currentFileBadge.style.display = 'none';
     }
     renderFavorites();
   }
