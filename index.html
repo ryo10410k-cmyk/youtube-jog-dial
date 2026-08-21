@@ -160,6 +160,9 @@
       font-size: 12px;
       color: #555;
       cursor: pointer;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
 
     /* Collapsible Favorites */
@@ -184,7 +187,7 @@
       flex-wrap: wrap;
       gap: 6px;
       padding: 0 10px 10px;
-      max-height: 90px;
+      max-height: 100px;
       overflow-y: auto;
     }
     .fav-chip {
@@ -196,7 +199,7 @@
       padding: 4px 8px;
       font-size: 11px;
       cursor: pointer;
-      max-width: 200px;
+      max-width: 220px;
     }
     .fav-chip-title {
       white-space: nowrap;
@@ -207,6 +210,7 @@
       margin-left: 6px;
       color: #999;
       font-weight: bold;
+      padding: 0 3px;
     }
 
     /* Voice Bar & Speed Control */
@@ -349,7 +353,7 @@
     <video id="localVideo" playsinline></video>
   </div>
 
-  <!-- Local File Seekbar (visible only in Local File mode) -->
+  <!-- Local File Seekbar -->
   <div id="localSeekbarContainer" class="local-seekbar-container">
     <span id="localCurrentTime" class="local-time-label">00:00</span>
     <input type="range" id="localSeekbar" class="local-seekbar" min="0" max="100" value="0" step="0.1" oninput="onSeekbarInput(this.value)" onchange="onSeekbarChange(this.value)">
@@ -373,9 +377,10 @@
     <!-- Local File Input Row -->
     <div id="rowLocal" class="input-row" style="display: none;">
       <label class="file-label">
-        <span>📁 Choose Video/Audio File</span>
-        <input type="file" id="localFileInput" accept="video/*,audio/*" style="display:none;" onchange="loadLocalFile(event)">
+        <span id="localFileLabelText">📁 Choose File</span>
+        <input type="file" id="localFileInput" accept="video/*,audio/*" style="display:none;" onchange="handleLocalFileSelect(event)">
       </label>
+      <button class="action-btn btn-fav" onclick="saveLocalToFavorites()">★ SAVE</button>
     </div>
   </div>
 
@@ -395,7 +400,7 @@
       <button id="playVoiceBtn" class="rec-btn rec-play" onclick="playVoice()" disabled>▶ VOICE</button>
     </div>
 
-    <!-- Playback Rate Pill (0.5x, 0.75x, 1.0x, 1.25x) -->
+    <!-- Playback Rate Pill -->
     <div class="speed-select">
       <button class="speed-btn" onclick="setPlaybackRate(0.5, this)">0.5x</button>
       <button class="speed-btn" onclick="setPlaybackRate(0.75, this)">0.75x</button>
@@ -432,6 +437,8 @@
   let playbackRate = 1.0;
   let currentVideoId = localStorage.getItem('last_played_video') || 'dQw4w9WgXcQ';
   let isUserSeekingBar = false;
+  let currentLoadedLocalBlob = null;
+  let currentLoadedLocalName = "";
 
   const localVideo = document.getElementById('localVideo');
   const localSeekbarContainer = document.getElementById('localSeekbarContainer');
@@ -441,7 +448,74 @@
   const centerBtn = document.getElementById('centerBtn');
   const statusText = document.getElementById('statusText');
 
-  /* 1. YouTube API */
+  /* ----------------------------------------------------
+     1. IndexedDB Helper for Local Files
+  ---------------------------------------------------- */
+  const DB_NAME = 'JogDialAppDB';
+  const DB_VERSION = 1;
+  const STORE_NAME = 'local_media';
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async function saveMediaToDB(id, title, blob) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.put({ id, title, blob, date: Date.now() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function getAllMediaFromDB() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function getMediaByIdFromDB(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get(id);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function deleteMediaFromDB(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  /* ----------------------------------------------------
+     2. YouTube API
+  ---------------------------------------------------- */
   var tag = document.createElement('script');
   tag.src = "https://www.youtube.com/iframe_api";
   var firstScriptTag = document.getElementsByTagName('script')[0];
@@ -595,18 +669,32 @@
         localSeekbarContainer.style.display = 'flex';
       }
     }
+    renderFavorites();
   }
 
-  function loadLocalFile(e) {
+  /* Local File Handling */
+  function handleLocalFileSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    const fileUrl = URL.createObjectURL(file);
+    currentLoadedLocalBlob = file;
+    currentLoadedLocalName = file.name;
+    document.getElementById('localFileLabelText').textContent = '📄 ' + file.name;
+
+    const fileKey = 'file_' + file.name + '_' + file.size;
+    playLocalBlob(file, fileKey);
+  }
+
+  function playLocalBlob(blob, fileKey) {
+    if (localVideo.src && localVideo.src.startsWith('blob:')) {
+      URL.revokeObjectURL(localVideo.src);
+    }
+    const fileUrl = URL.createObjectURL(blob);
     localVideo.src = fileUrl;
     localVideo.playbackRate = playbackRate;
-    localVideo.dataset.fileKey = file.name + '_' + file.size;
+    localVideo.dataset.fileKey = fileKey;
 
-    const savedTime = parseFloat(localStorage.getItem('resume_local_' + localVideo.dataset.fileKey) || '0');
+    const savedTime = parseFloat(localStorage.getItem('resume_local_' + fileKey) || '0');
     localVideo.onloadedmetadata = () => {
       localSeekbarContainer.style.display = 'flex';
       localSeekbar.max = localVideo.duration;
@@ -622,6 +710,18 @@
     localVideo.onplay = () => { centerBtn.textContent = 'PAUSE'; };
     localVideo.onpause = () => { centerBtn.textContent = 'PLAY'; };
     localVideo.play();
+  }
+
+  async function playLocalFromFavorites(id) {
+    const item = await getMediaByIdFromDB(id);
+    if (!item) {
+      alert("File not found in storage.");
+      return;
+    }
+    document.getElementById('localFileLabelText').textContent = '📄 ' + item.title;
+    currentLoadedLocalBlob = item.blob;
+    currentLoadedLocalName = item.title;
+    playLocalBlob(item.blob, id);
   }
 
   /* Sensitivity Settings */
@@ -672,7 +772,9 @@
     playVideoById(vid);
   }
 
-  /* Favorites Feature */
+  /* ----------------------------------------------------
+     3. Favorites Management (YouTube & IndexedDB Local)
+  ---------------------------------------------------- */
   function getFavorites() {
     try { return JSON.parse(localStorage.getItem('my_fav_videos') || '[]'); } catch (_) { return []; }
   }
@@ -694,6 +796,19 @@
     renderFavorites();
   }
 
+  async function saveLocalToFavorites() {
+    if (!currentLoadedLocalBlob) {
+      alert("Please select a local file first.");
+      return;
+    }
+    const label = prompt("Enter a name for this favorite:", currentLoadedLocalName || "Lesson Audio");
+    if (!label) return;
+
+    const fileKey = 'db_' + Date.now();
+    await saveMediaToDB(fileKey, label, currentLoadedLocalBlob);
+    renderFavorites();
+  }
+
   function deleteFavorite(index, e) {
     e.stopPropagation();
     const favs = getFavorites();
@@ -702,30 +817,55 @@
     renderFavorites();
   }
 
-  function renderFavorites() {
+  async function deleteLocalFavorite(id, e) {
+    e.stopPropagation();
+    await deleteMediaFromDB(id);
+    localStorage.removeItem('resume_local_' + id);
+    renderFavorites();
+  }
+
+  async function renderFavorites() {
     const container = document.getElementById('favList');
     const countEl = document.getElementById('favCount');
     if (!container) return;
-    const favs = getFavorites();
-    countEl.textContent = favs.length;
     container.innerHTML = '';
 
-    if (favs.length === 0) {
-      container.innerHTML = '<span style="font-size:11px;color:#aaa;">No saved favorites</span>';
-      return;
+    if (activeMode === 'yt') {
+      const favs = getFavorites();
+      countEl.textContent = favs.length;
+      if (favs.length === 0) {
+        container.innerHTML = '<span style="font-size:11px;color:#aaa;">No saved favorites</span>';
+        return;
+      }
+      favs.forEach((item, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'fav-chip';
+        chip.title = item.title;
+        chip.innerHTML = `<span class="fav-chip-title">▶ ${item.title}</span><span class="fav-chip-del" onclick="deleteFavorite(${idx}, event)">×</span>`;
+        chip.onclick = () => playVideoById(item.id);
+        container.appendChild(chip);
+      });
+    } else {
+      const localFavs = await getAllMediaFromDB();
+      countEl.textContent = localFavs.length;
+      if (localFavs.length === 0) {
+        container.innerHTML = '<span style="font-size:11px;color:#aaa;">No saved local files in storage</span>';
+        return;
+      }
+      localFavs.forEach((item) => {
+        const chip = document.createElement('div');
+        chip.className = 'fav-chip';
+        chip.title = item.title;
+        chip.innerHTML = `<span class="fav-chip-title">📁 ${item.title}</span><span class="fav-chip-del" onclick="deleteLocalFavorite('${item.id}', event)">×</span>`;
+        chip.onclick = () => playLocalFromFavorites(item.id);
+        container.appendChild(chip);
+      });
     }
-
-    favs.forEach((item, idx) => {
-      const chip = document.createElement('div');
-      chip.className = 'fav-chip';
-      chip.title = item.title;
-      chip.innerHTML = `<span class="fav-chip-title">▶ ${item.title}</span><span class="fav-chip-del" onclick="deleteFavorite(${idx}, event)">×</span>`;
-      chip.onclick = () => playVideoById(item.id);
-      container.appendChild(chip);
-    });
   }
 
-  /* MediaRecorder Audio Logic */
+  /* ----------------------------------------------------
+     4. MediaRecorder Audio Logic
+  ---------------------------------------------------- */
   let mediaRecorder = null;
   let audioChunks = [];
   let recordedAudioUrl = null;
@@ -790,7 +930,9 @@
     if (navigator.vibrate) navigator.vibrate(8);
   }
 
-  /* Jog Dial Motion Controller */
+  /* ----------------------------------------------------
+     5. Jog Dial Motion Controller
+  ---------------------------------------------------- */
   const dial = document.getElementById('jogDial');
   let isDragging = false;
   let startAngle = 0;
