@@ -235,26 +235,28 @@
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 8px 12px;
+      padding: 8px 10px;
       box-sizing: border-box;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
     }
     .rec-btn {
-      padding: 6px 12px;
-      font-size: 12px;
+      padding: 6px 9px;
+      font-size: 11px;
       font-weight: bold;
       border-radius: 6px;
       border: none;
       cursor: pointer;
+      white-space: nowrap;
     }
     .rec-start { background: #ff3b30; color: #fff; }
     .rec-recording { background: #333; color: #fff; animation: pulse 1.2s infinite; }
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
     .rec-play { background: #34c759; color: #fff; }
-    .rec-play:disabled { background: #e0e0e0; color: #999; cursor: not-allowed; }
+    .rec-save { background: #007aff; color: #fff; }
+    .rec-btn:disabled { background: #e0e0e0; color: #999; cursor: not-allowed; }
 
     /* Speed Selector Pill */
     .speed-select {
@@ -437,9 +439,10 @@
 
   <!-- Voice & Speed Control Bar -->
   <div class="control-bar">
-    <div style="display:flex; gap:6px; align-items:center;">
+    <div style="display:flex; gap:5px; align-items:center;">
       <button id="recBtn" class="rec-btn rec-start" onclick="toggleRecording()">● REC</button>
       <button id="playVoiceBtn" class="rec-btn rec-play" onclick="playVoice()" disabled>▶ VOICE</button>
+      <button id="saveVoiceBtn" class="rec-btn rec-save" onclick="saveVoiceToFile()" disabled>⬇ SAVE</button>
     </div>
 
     <!-- Playback Rate Pill (0.5x, 0.75x, 1.0x, 1.25x) -->
@@ -965,35 +968,53 @@
   }
 
   /* ----------------------------------------------------
-     4. MediaRecorder Audio Logic
+     4. MediaRecorder Audio Logic & Voice Save
   ---------------------------------------------------- */
   let mediaRecorder = null;
   let audioChunks = [];
+  let recordedAudioBlob = null;
   let recordedAudioUrl = null;
+  let recordedMimeType = 'audio/webm';
   let currentAudio = null;
   let isRecording = false;
 
   const recBtn = document.getElementById('recBtn');
   const playVoiceBtn = document.getElementById('playVoiceBtn');
+  const saveVoiceBtn = document.getElementById('saveVoiceBtn');
+
+  function getSupportedMimeType() {
+    const types = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/aac'];
+    for (const t of types) {
+      if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) {
+        return t;
+      }
+    }
+    return '';
+  }
 
   async function toggleRecording() {
     if (!isRecording) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
+        recordedMimeType = getSupportedMimeType();
+        const options = recordedMimeType ? { mimeType: recordedMimeType } : {};
+
+        mediaRecorder = new MediaRecorder(stream, options);
         mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
         mediaRecorder.onstop = () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          recordedAudioBlob = new Blob(audioChunks, { type: recordedMimeType || 'audio/webm' });
           if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl);
-          recordedAudioUrl = URL.createObjectURL(audioBlob);
+          recordedAudioUrl = URL.createObjectURL(recordedAudioBlob);
           playVoiceBtn.disabled = false;
+          saveVoiceBtn.disabled = false;
           stream.getTracks().forEach(track => track.stop());
         };
         mediaRecorder.start();
         isRecording = true;
         recBtn.textContent = "■ STOP";
         recBtn.className = "rec-btn rec-recording";
+        saveVoiceBtn.disabled = true;
       } catch (err) {
         alert("Mic permission denied.");
       }
@@ -1010,6 +1031,29 @@
     if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
     currentAudio = new Audio(recordedAudioUrl);
     currentAudio.play();
+  }
+
+  function saveVoiceToFile() {
+    if (!recordedAudioBlob) return;
+    
+    // Determine file extension
+    let ext = 'webm';
+    if (recordedMimeType.includes('mp4')) ext = 'mp4';
+    else if (recordedMimeType.includes('ogg')) ext = 'ogg';
+    else if (recordedMimeType.includes('aac')) ext = 'aac';
+
+    // Format current timestamp
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const timeStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const filename = `my_voice_${timeStr}.${ext}`;
+
+    const downloadLink = document.createElement('a');
+    downloadLink.href = recordedAudioUrl;
+    downloadLink.download = filename;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
   }
 
   function formatTime(seconds) {
